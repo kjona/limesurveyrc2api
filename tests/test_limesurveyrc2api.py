@@ -5,6 +5,20 @@ from limesurveyrc2api.limesurvey import LimeSurvey, LimeSurveyError
 from configparser import ConfigParser
 
 
+def get_invalid_survey_id(surveys):
+    """
+    Determine a survey ID that does not exist in the list of surveys.
+
+    :param surveys: existing surveys
+    :type surveys: List[Dict]
+    :return: invalid survey ID
+    """
+    survey_ids = [s.get('sid') for s in surveys]
+    # construct an invalid survey ID by taking the longest ID
+    # (these are strings) and appending a '9'
+    return sorted(survey_ids, key=len)[-1] + '9'
+
+
 class TestBase(unittest.TestCase):
 
     @classmethod
@@ -110,7 +124,7 @@ class TestTokens(TestBase):
         """Adding participants to an invalid survey should return an error."""
         # A
         surveys = self.api.survey.list_surveys()
-        survey_id = surveys[0].get('sid') + 9
+        survey_id = get_invalid_survey_id(surveys)
         participants = [
             {'email': 't1@test.com', 'lastname': 'LN1', 'firstname': 'FN1'},
             {'email': 't2@test.com', 'lastname': 'LN2', 'firstname': 'FN2'},
@@ -201,7 +215,7 @@ class TestQuestions(TestBase):
     def test_list_questions_failure(self):
         """Listing questions for an invalid survey should returns an error."""
         surveys = self.api.survey.list_surveys()
-        survey_id = surveys[0].get('sid') + 9
+        survey_id = get_invalid_survey_id(surveys)
         with self.assertRaises(LimeSurveyError) as ctx:
             self.api.survey.list_questions(survey_id)
         self.assertIn("Error: Invalid survey ID", ctx.exception.message)
