@@ -7,6 +7,69 @@ class _Token(object):
     def __init__(self, api):
         self.api = api
 
+    def get_summary(self, survey_id):
+        """
+        Get participant properties in a survey.
+
+        Parameters
+        :param survey_id: ID of survey
+        :type survey_id: Integer
+
+        :return: dict with keys 'token_count', 'token_invalid', 'token_sent',
+            'token_opted_out', and 'token_completed' with strings as values.
+        """
+        method = "get_summary"
+        params = OrderedDict([
+            ('sSessionKey', self.api.session_key),
+            ('iSurveyID', survey_id)
+        ])
+        response = self.api.query(method=method, params=params)
+        if type(response) is dict and "status" in response:
+            raise LimeSurveyError(method, response["status"])
+        return response
+
+    def list_participants(self, survey_id, start=0, limit=1000,
+                          ignore_token_used=False, attributes=False,
+                          conditions=None):
+        """
+        List participants in a survey.
+
+        Parameters
+        :param survey_id: ID of survey
+        :type survey_id: Integer
+        :param start: Index of first token to retrieve
+        :type start: Integer
+        :param limit: Number of tokens to retrieve
+        :type limit: Integer
+        :param ignore_token_used: If True, tokens that have been used are not
+            returned
+        :type ignore_token_used: Integer
+
+        :param attributes: The extended attributes that we want
+        :type attributes: List[String]
+        :param conditions: (optional) conditions to limit the list,
+            e.g. {'email': 't1@test.com'}
+        :type conditions: List[Dict]
+
+        :return: List of dictionaries
+
+        """
+        method = 'list_participants'
+        conditions = conditions or []
+        params = OrderedDict([
+            ('sSessionKey', self.api.session_key),
+            ('iSurveyID', survey_id),
+            ('iStart', start),
+            ('iLimit', limit),
+            ('bUnused', ignore_token_used),
+            ('aAttributes', attributes),
+            ('aConditions', conditions)
+        ])
+        response = self.api.query(method=method, params=params)
+        if type(response) is dict and "status" in response:
+            raise LimeSurveyError(method, response["status"])
+        return response
+
     def add_participants(
             self, survey_id, participant_data, create_token_key=True):
         """
@@ -122,11 +185,3 @@ class _Token(object):
 
         assert response_type is dict
         return response
-
-    def list_participants(self):
-        # TODO
-        pass
-
-    def get_summary(self):
-        # TODO
-        pass

@@ -20,10 +20,9 @@ def get_invalid_survey_id(surveys):
 
 
 class TestBase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
-        
+
         # Read config.ini file
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(current_dir, 'config.ini')
@@ -49,7 +48,6 @@ class TestBase(unittest.TestCase):
 
 
 class TestSessionsNoSetup(TestBase):
-
     def setUp(self):
         """Test requires specifically opening a session so nullify default."""
         pass
@@ -62,7 +60,6 @@ class TestSessionsNoSetup(TestBase):
 
 
 class TestSessions(TestBase):
-
     def test_get_session_key_success(self):
         """Opening a session with valid creds should return a session key."""
         self.assertEqual(32, len(self.api.session_key))
@@ -84,7 +81,6 @@ class TestSessions(TestBase):
 
 
 class TestSurveys(TestBase):
-
     def test_list_surveys_success(self):
         """A valid request for list of surveys should not return empty."""
         result = self.api.survey.list_surveys()
@@ -99,6 +95,79 @@ class TestSurveys(TestBase):
 
 
 class TestTokens(TestBase):
+    def test_get_summary(self):
+        """
+        Get summary of a survey
+        """
+        surveys = self.api.survey.list_surveys()
+        survey_id = surveys[0].get('sid')
+        survey_summary = self.api.token.get_summary(survey_id)
+        # example response:
+        # {'token_count': '26', 'token_invalid': '0', 'token_sent': '0',
+        #  'token_opted_out': '0', 'token_completed': '0'}
+        self.assertIn('token_count', survey_summary)
+        self.assertIsInstance(survey_summary['token_count'], str)
+        self.assertIn('token_invalid', survey_summary)
+        self.assertIsInstance(survey_summary['token_invalid'], str)
+        self.assertIn('token_sent', survey_summary)
+        self.assertIsInstance(survey_summary['token_sent'], str)
+        self.assertIn('token_opted_out', survey_summary)
+        self.assertIsInstance(survey_summary['token_opted_out'], str)
+        self.assertIn('token_completed', survey_summary)
+        self.assertIsInstance(survey_summary['token_completed'], str)
+
+        # error cases
+        # invalid summary
+        with self.assertRaises(LimeSurveyError) as ctx:
+            self.api.token.get_summary(get_invalid_survey_id(surveys))
+        self.assertIn('Invalid surveyid', ctx.exception.message)
+
+    def test_list_participants(self):
+        """
+        List of participant of an survey should return the tokens.
+        """
+        surveys = self.api.survey.list_surveys()
+        survey_id = surveys[0].get('sid')
+
+        participants = self.api.token.list_participants(survey_id)
+        self.assertNotEqual(
+            len(participants),
+            0,
+            "To test list_participants, at least one participant must exist."
+        )
+        participant = participants[0]
+        self.assertIn('tid', participant)
+        self.assertIn('token', participant)
+        # participant_info has three keys
+        self.assertIn('participant_info', participant)
+        self.assertEqual(len(participant['participant_info']), 3)
+        self.assertIn('firstname', participant['participant_info'])
+        self.assertIn('lastname', participant['participant_info'])
+        self.assertIn('email', participant['participant_info'])
+
+        # query for more attributes
+        # Note: these are not written to the 'participant_info' dict, but
+        # directly to the list item (=participant)
+        self.assertNotIn('language', participant)  # by default no extra attr
+        participants = self.api.token.list_participants(survey_id,
+                                                        attributes=['language'])
+        participant = participants[0]
+        self.assertIn('language', participant)  # now we have 'language'
+
+        # query with conditions
+        email = participant['participant_info']['email']
+        participants = self.api.token.list_participants(
+            survey_id,
+            conditions={'email': email}
+        )
+        for participant in participants:
+            self.assertEqual(participant['participant_info']['email'], email)
+
+        # error cases
+        # invalid summary
+        with self.assertRaises(LimeSurveyError) as ctx:
+            self.api.token.list_participants(get_invalid_survey_id(surveys))
+        self.assertIn('Invalid survey ID', ctx.exception.message)
 
     def test_add_participants_success(self):
         """Adding participants to a survey should return their tokens."""
@@ -200,7 +269,6 @@ class TestTokens(TestBase):
 
 
 class TestQuestions(TestBase):
-
     def test_list_questions_success(self):
         """Listing questions for a survey should return a question list."""
         surveys = self.api.survey.list_surveys()
